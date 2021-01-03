@@ -1,5 +1,6 @@
 ################################################################
-FROM ubuntu:xenial-20170915 AS base
+#FROM ubuntu:xenial-20170915 AS base
+FROM nvidia/cuda:10.1-cudnn7-devel-ubuntu16.04 AS base
 
 
 # Setup environment variables in a single layer
@@ -15,12 +16,14 @@ ENV \
 ################################################################
 FROM base AS buildstuff
 
-RUN apt-get update && \
-    apt-get install -y \
+RUN apt update && apt upgrade -y
+RUN apt install -y \
         build-essential dpkg-dev libwebkitgtk-dev libjpeg-dev libtiff-dev libgtk2.0-dev \
-        libsdl1.2-dev libgstreamer-plugins-base0.10-dev libnotify-dev freeglut3 freeglut3-dev \
+        libsdl1.2-dev libgstreamer-plugins-base1.0-dev libnotify-dev freeglut3 freeglut3-dev \
         libjson-c2 libjson-c-dev \
-        git
+        git wget
+#RUN wget http://de.archive.ubuntu.com/ubuntu/pool/main/j/json-c/libjson-c2_0.11-4ubuntu2_i386.deb
+#RUN dpkg -i libjson-c2_0.11-4ubuntu2_i386.deb
 
 # clone, build, and install the input bot
 # (explicitly specifying commit hash to attempt to guarantee behavior within this container)
@@ -34,25 +37,25 @@ RUN git clone https://github.com/mupen64plus/mupen64plus-core && \
         git reset --hard 40eff412eca6491acb7f70932b87b404c9c3ef70 && \
     make all && \
     make install
-
+RUN apt update && apt upgrade -y
 
 ################################################################
 FROM base
 
-
 # Update package cache and install dependencies
-RUN apt-get update && \
-    apt-get install -y \
-        python python-pip python-setuptools python-dev \
+RUN apt update && apt upgrade -y
+RUN apt install -y \
+        python3 python3-pip python3-dev \
         wget \
         xvfb libxv1 x11vnc \
         imagemagick \
         mupen64plus \
         nano \
-        ffmpeg
+        ffmpeg \
+        libjson-c-dev
 
 # Upgrade pip
-RUN pip install --upgrade pip 
+RUN pip3 install --upgrade pip
 
 # install VirtualGL (provides vglrun to allow us to run the emulator in XVFB)
 # (Check for new releases here: https://github.com/VirtualGL/virtualgl/releases)
@@ -71,13 +74,20 @@ COPY . /src/gym-mupen64plus
 COPY ["./gym_mupen64plus/envs/Smash/smash.sra", "/root/.local/share/mupen64plus/save/Super Smash Bros. (U) [!].sra"]
 
 # Install requirements & this package
-WORKDIR /src/gym-mupen64plus
-RUN pip install -e .
-
 # Declare ROMs as a volume for mounting a host path outside the container
-VOLUME /src/gym-mupen64plus/gym_mupen64plus/ROMs/
+VOLUME /src/gym-mupen64plus
+WORKDIR /src/gym-mupen64plus
 
-WORKDIR /src
+# jupyter lab
+RUN apt install nodejs npm -y
+RUN npm install -g n
+RUN n stable
+RUN apt purge nodejs npm -y
+RUN pip install -r requirements.txt
+RUN jupyter serverextension enable --py jupyterlab
+RUN jupyter labextension install jupyterlab_vim
 
 # Expose the default VNC port for connecting with a client/viewer outside the container
 EXPOSE 5900
+# for jupyter lab
+EXPOSE 8888

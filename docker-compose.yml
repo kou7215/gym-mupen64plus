@@ -1,0 +1,14 @@
+version : '3'
+services:
+  gym-mupen64plus:
+    build: ./
+    image : gym-mupen64plus-image
+    container_name: gym-mupen64-container
+    ports:
+      - "5900"
+      - "8888:8888"
+    volumes:
+      - .:/src/gym-mupen64plus
+    command:
+      jupyter lab
+        --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.notebook_dir='/src/gym-mupen64plus/notebooks'
